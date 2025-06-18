@@ -32,7 +32,8 @@ function checkCodeRateLimit(ip: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
-    // Rate limiting    const ip = request.headers.get("x-forwarded-for") || "unknown"
+    const ip = request.headers.get("x-forwarded-for") || "unknown"
+    // Rate limiting
     if (!checkCodeRateLimit(ip)) {
       logSecurityEvent('CODE_RATE_LIMIT_EXCEEDED', { ip, endpoint: '/api/verify-code' })
       return NextResponse.json(
@@ -114,4 +115,5 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
 

@@ -8,41 +8,8 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-// Rate limiting simples em memória (para produção, use Redis)
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now()
-  const windowMs = 15 * 60 * 1000 // 15 minutos
-  const maxAttempts = 5
-
-  const record = rateLimitMap.get(ip)
-  
-  if (!record || now > record.resetTime) {
-    rateLimitMap.set(ip, { count: 1, resetTime: now + windowMs })
-    return true
-  }
-  
-  if (record.count >= maxAttempts) {
-    return false
-  }
-  
-  record.count++
-  return true
-}
-
 export async function POST(request: NextRequest) {
   try {
-    // Rate limiting
-    const ip = request.ip || request.headers.get('x-forwarded-for') || 'unknown'
-    if (!checkRateLimit(ip)) {
-      logSecurityEvent('RATE_LIMIT_EXCEEDED', { ip, endpoint: '/api/verify-email' })
-      return NextResponse.json(
-        { error: 'Muitas tentativas. Tente novamente em 15 minutos.' },
-        { status: 429 }
-      )
-    }
-
     const { email } = await request.json()
 
     if (!email) {
@@ -55,7 +22,7 @@ export async function POST(request: NextRequest) {
     // Validar e sanitizar email
     const sanitizedEmail = sanitizeInput(email)
     if (!isValidEmail(sanitizedEmail)) {
-      logSecurityEvent('INVALID_EMAIL_FORMAT', { email: sanitizedEmail, ip })
+      logSecurityEvent('INVALID_EMAIL_FORMAT', { email: sanitizedEmail, ip: request.headers.get('x-forwarded-for') || 'unknown' })
       return NextResponse.json(
         { error: 'Formato de email inválido' },
         { status: 400 }
@@ -70,7 +37,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (userError || !user) {
-      logSecurityEvent('EMAIL_NOT_FOUND', { email: sanitizedEmail, ip })
+      logSecurityEvent('EMAIL_NOT_FOUND', { email: sanitizedEmail, ip: request.headers.get('x-forwarded-for') || 'unknown' })
       return NextResponse.json(
         { error: 'Email não encontrado na base de dados' },
         { status: 404 }
@@ -100,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       console.error('Erro ao inserir código:', insertError)
-      logSecurityEvent('DATABASE_ERROR', { error: insertError, ip })
+      logSecurityEvent('DATABASE_ERROR', { error: insertError, ip: request.headers.get('x-forwarded-for') || 'unknown' })
       return NextResponse.json(
         { error: 'Erro interno do servidor' },
         { status: 500 }
@@ -117,13 +84,13 @@ export async function POST(request: NextRequest) {
 
       if (!emailResult.success) {
         console.error('Erro ao enviar email:', emailResult.error)
-        logSecurityEvent('EMAIL_SEND_ERROR', { error: emailResult.error, ip })
+        logSecurityEvent('EMAIL_SEND_ERROR', { error: emailResult.error, ip: request.headers.get('x-forwarded-for') || 'unknown' })
       } else {
-        logSecurityEvent('EMAIL_SENT', { email: sanitizedEmail, ip })
+        logSecurityEvent('EMAIL_SENT', { email: sanitizedEmail, ip: request.headers.get('x-forwarded-for') || 'unknown' })
       }
     } else {
       console.log(`Código de verificação para ${sanitizedEmail}: ${verificationCode}`)
-      logSecurityEvent('CODE_GENERATED', { email: sanitizedEmail, ip })
+      logSecurityEvent('CODE_GENERATED', { email: sanitizedEmail, ip: request.headers.get('x-forwarded-for') || 'unknown' })
     }
 
     return NextResponse.json({
@@ -134,11 +101,12 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Erro na API:', error)
-    logSecurityEvent('API_ERROR', { error: error.message, ip: request.ip })
+    logSecurityEvent('API_ERROR', { error: error.message, ip: request.headers.get('x-forwarded-for') || 'unknown' })
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }
     )
   }
 }
+
 
