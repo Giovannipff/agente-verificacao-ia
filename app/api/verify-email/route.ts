@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
       ...((!process.env.SMTP_USER || !process.env.SMTP_PASS) && { code: verificationCode })
     })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro na API:', error)
     logSecurityEvent('API_ERROR', { error: error.message, ip: request.ip })
     return NextResponse.json(

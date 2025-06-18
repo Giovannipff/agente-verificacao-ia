@@ -35,7 +35,7 @@ export default function Home() {
       } else {
         setMessage(data.error)
       }
-    } catch (error) {
+    } catch (error: any) {
       setMessage('Erro ao conectar com o servidor')
     } finally {
       setLoading(false)
@@ -63,7 +63,7 @@ export default function Home() {
       } else {
         setMessage(`❌ ${data.error}`)
       }
-    } catch (error) {
+    } catch (error: any) {
       setMessage('Erro ao conectar com o servidor')
     } finally {
       setLoading(false)

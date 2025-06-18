@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       verified: true
     })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro na API:', error)
     logSecurityEvent('CODE_API_ERROR', { error: error.message, ip: request.ip })
     return NextResponse.json(
